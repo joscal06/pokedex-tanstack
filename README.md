@@ -2,6 +2,8 @@
 
 Pokédex construida con **Next.js 16 (App Router)**, **React Server Components** y **TanStack Query v5** para practicar la optimización de la transferencia de datos: renderizado en el servidor, *hydration*, *prefetching* al pasar el mouse y una estrategia de caché de 24 horas. Los datos provienen de [PokéAPI](https://pokeapi.co/).
 
+**Demo en línea:** <https://pokedex-tanstack-beta.vercel.app/>  (despliegue continuo en Vercel desde la rama `main`).
+
 ## Funcionalidades
 
 | Requisito | Implementación |
@@ -54,19 +56,22 @@ dehydrate()       → serializa la caché  ───────▶  <HydrationB
 - **Detalle (`/pokemon/[name]`)**: el prefetch **no** se espera. La consulta se deshidrata en estado *pending* (`shouldDehydrateQuery` incluye `status === "pending"`) y el resultado llega por *streaming*. Así el servidor responde de inmediato; si el usuario ya precargó ese Pokémon con hover, `useSuspenseQuery` encuentra los datos en la caché del navegador y renderiza sin esperar el streaming.
 - En el servidor se crea un `QueryClient` por petición (para no mezclar datos entre usuarios) y en el navegador se reutiliza uno solo (singleton) para conservar la caché entre navegaciones.
 - Las claves y opciones de las consultas están centralizadas en `src/lib/query/pokemon-queries.ts` (`queryOptions`), de modo que servidor y cliente usan exactamente la misma clave (`["pokemon", "detail", name]`, `["pokemon", "list", page]`).
+- Las tarjetas muestran si su detalle ya está en caché mediante `useCachedQuery` (`src/lib/query/use-cached-query.ts`), que **lee** la caché sin crear entradas. Con `useQuery({ enabled: false })` cada tarjeta registraría una consulta vacía; al abrir el detalle, `HydrationBoundary` vería que la entrada ya existe, aplazaría la hidratación y el cliente volvería a pedir los datos a PokéAPI en lugar de usar los que envía el servidor.
 
 ### Por qué el detalle no tiene `loading.tsx`
 
 Un `loading.tsx` a nivel de ruta se muestra en **toda** navegación, aunque los datos ya estén en caché, y React lo mantiene visible un mínimo de ~300 ms. Por eso el skeleton del detalle vive en un `<Suspense>` dentro de la página: solo aparece cuando de verdad faltan los datos. El skeleton de la lista está en el grupo de rutas `(home)` para que no afecte a `/pokemon/*`.
 
-### Resultados medidos (build de producción, Chrome headless)
+### Resultados medidos (Chrome headless)
 
-| Escenario | Tiempo hasta ver el detalle | Skeleton | Peticiones del navegador a PokéAPI |
-| --- | --- | --- | --- |
-| Carga inicial de la lista | — | No | 0 (datos hidratados desde el servidor) |
-| Hover sobre una tarjeta | — | — | 3 (pokemon, species, evolution-chain), una sola vez |
-| Clic en un Pokémon precargado | ≈ 70–140 ms | No | 0 |
-| Clic en un Pokémon sin precargar | ≈ 480 ms | Sí | 0 (llega por streaming desde el servidor) |
+| Escenario | Build local | Vercel | Skeleton | Peticiones del navegador a PokéAPI |
+| --- | --- | --- | --- | --- |
+| Carga inicial de la lista | — | — | No | 0 (datos hidratados desde el servidor) |
+| Hover sobre una tarjeta | — | — | — | 3 (pokemon, species, evolution-chain), una sola vez |
+| Clic en un Pokémon precargado | ≈ 60–140 ms | ≈ 270 ms | No | 0 |
+| Clic en un Pokémon sin precargar | ≈ 420–480 ms | ≈ 500 ms | Sí | 0 (llega por streaming desde el servidor) |
+
+En Vercel la diferencia restante en el caso precargado es solo la ida y vuelta de la navegación al servidor (región de la función); los datos ya no se esperan.
 
 ## Estructura del proyecto
 
@@ -97,7 +102,8 @@ src/
     │   └── api.ts               # Funciones de acceso a PokéAPI (servidor y cliente)
     ├── query/
     │   ├── get-query-client.ts  # QueryClient: staleTime, gcTime, dehydrate
-    │   └── pokemon-queries.ts   # queryOptions y claves compartidas
+    │   ├── pokemon-queries.ts   # queryOptions y claves compartidas
+    │   └── use-cached-query.ts  # Lectura de la caché sin crear consultas
     └── format.ts                # Nombres, colores y etiquetas en español
 ```
 

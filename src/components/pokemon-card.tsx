@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { PokemonSummary } from "@/lib/pokeapi/types";
+import { useQueryClient } from "@tanstack/react-query";
+import type { PokemonDetail, PokemonSummary } from "@/lib/pokeapi/types";
 import { pokemonQueries } from "@/lib/query/pokemon-queries";
+import { useCachedQuery } from "@/lib/query/use-cached-query";
 import { formatId, formatName } from "@/lib/format";
 import { TypeBadge } from "./type-badge";
 
@@ -16,12 +17,11 @@ interface PokemonCardProps {
 export function PokemonCard({ pokemon, priority = false }: PokemonCardProps) {
   const queryClient = useQueryClient();
 
-  // Solo observa la caché (enabled: false): nunca dispara una petición por sí
-  // mismo, pero se actualiza cuando el prefetch por hover termina.
-  const { data: detail, isFetching } = useQuery({
-    ...pokemonQueries.detail(pokemon.name),
-    enabled: false,
-  });
+  // Solo observa la caché: nunca dispara una petición por sí mismo, pero se
+  // actualiza cuando el prefetch por hover termina.
+  const { data: detail, isFetching } = useCachedQuery<PokemonDetail>(
+    pokemonQueries.detail(pokemon.name).queryKey,
+  );
 
   const prefetchDetail = () => {
     // prefetchQuery respeta staleTime: si ya está en caché y fresco, no hace nada.
