@@ -8,3 +8,29 @@
 :root {
   color-scheme: light dark;
 }
+
+/* Animaciones de la batalla */
+@keyframes battle-shake {
+  0%, 100% { transform: translateX(0); opacity: 1; }
+  20% { transform: translateX(-8px); opacity: 0.4; }
+  40% { transform: translateX(8px); opacity: 1; }
+  60% { transform: translateX(-6px); opacity: 0.4; }
+  80% { transform: translateX(6px); opacity: 1; }
+}
+
+@keyframes battle-lunge-up {
+  50% { transform: translate(18px, -12px); }
+}
+
+@keyframes battle-lunge-down {
+  50% { transform: translate(-18px, 12px); }
+}
+
+@keyframes battle-enter {
+  from { transform: scale(0.2); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[battle-"] { animation: none !important; }
+}

@@ -44,7 +44,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   Pokédex
                 </span>
               </Link>
-              <CacheIndicator />
+              <nav className="flex items-center gap-3">
+                <Link
+                  href="/batalla"
+                  className="rounded-full bg-white px-4 py-1.5 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-50"
+                >
+                  ⚔️ Batalla
+                </Link>
+                <CacheIndicator />
+              </nav>
             </div>
           </header>
 

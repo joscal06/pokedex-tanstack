@@ -110,6 +110,55 @@ src/
 **Server Components:** `layout.tsx`, `(home)/page.tsx`, `pokemon/[name]/page.tsx`, `Pagination`, `TypeBadge`, skeletons.
 **Client Components (`"use client"`):** todo lo que usa hooks de TanStack Query o eventos del navegador (`Providers`, `PokemonGrid`, `PokemonCard`, `PokemonDetailView`, `CacheIndicator`, `ErrorPanel`, `error.tsx`).
 
+## Minijuego: batalla Pokémon en vivo (`/batalla`)
+
+Extra opcional, fuera de los requisitos de la actividad. Dos personas combaten turno a turno, cada una desde su navegador:
+
+1. El anfitrión elige el tamaño (1, 3 o 6 Pokémon), arma su equipo y crea una sala.
+2. Recibe un enlace `/batalla/<código>` para compartir (botón copiar o compartir).
+3. Quien abre el enlace ve el desafío y arma un equipo del mismo tamaño.
+4. La batalla empieza en ambas pantallas sin recargar. Cada turno los dos eligen un ataque o un cambio de Pokémon y el servidor resuelve el turno cuando ambos eligieron. Cualquier otra persona que abra el enlace la ve como espectador.
+
+### Mecánicas
+
+- Todos los Pokémon luchan a **nivel 50** con sus estadísticas base reales (IV 31, sin EV, naturaleza neutra).
+- Cada uno lleva **4 ataques reales** que aprende por nivel según PokéAPI: el mejor de cada tipo propio (STAB) y luego ataques de otros tipos para tener cobertura.
+- **Fórmula de daño oficial**, STAB ×1,5, **tabla de 18 tipos**, golpes críticos (×1,5), variación aleatoria del 85 al 100 %, precisión, prioridad y velocidad.
+- Golpes múltiples, drenaje y retroceso, retroceso por miedo, subidas y bajadas de estadísticas (−6 a +6) y los estados **quemado, paralizado, envenenado y congelado**.
+- No se modelan habilidades, objetos ni ataques de estado puro.
+
+`npm run simulate` ejecuta 500 batallas aleatorias contra el motor (`src/lib/battle/engine.ts`) y verifica que siempre terminen, que los PS nunca salgan de rango y que no haya mensajes inválidos.
+
+### Arquitectura
+
+```
+Navegador A ─┐                                    ┌─ Navegador B
+             │  Server Action (cookie httpOnly)   │
+             ├──────────────▶ Next.js ◀───────────┤
+             │                  │ motor de batalla│
+             │                  ▼ (autoridad)     │
+             │          Supabase: battles (privada)
+             │                   battle_signals (pública, solo versión)
+             │                  │ Realtime        │
+             └────── invalidateQueries ◀──────────┘
+                        └▶ GET /api/batallas/[id] → vista sin secretos
+```
+
+- **El servidor es la única autoridad.** Los navegadores solo envían "uso el ataque 2" o "cambio al Pokémon 3". Las estadísticas, el daño y el azar (generador con semilla) se calculan en el servidor, así que nadie puede hacer trampa desde la consola.
+- **Identidad sin cuentas:** al crear o unirse a una sala, el servidor guarda un token aleatorio en una cookie `httpOnly` exclusiva de esa sala.
+- **Información oculta:** la acción del rival no se revela hasta que se resuelve el turno, y la vista que recibe cada jugador no incluye los ataques del rival.
+- **Concurrencia:** cada escritura usa control optimista por `version`. Si los dos jugadores eligen en el mismo instante, uno reintenta sobre el estado actualizado.
+- **Tiempo real con TanStack Query:** `useBattleRealtime` escucha `battle_signals` por WebSocket y llama a `invalidateQueries`. Para estos datos la estrategia de caché es la opuesta a la de PokéAPI: `staleTime: 0`, con un sondeo de respaldo de 15 s (o de 1,5 s si Realtime no está configurado).
+- **Animación:** cada evento del turno trae una foto del estado de ambos lados, y el cliente los reproduce en orden: barras de PS, sacudidas al recibir daño, debilitados y cambios.
+
+### Configuración (Supabase)
+
+1. Crear un proyecto en [Supabase](https://supabase.com) y ejecutar [`supabase/schema.sql`](supabase/schema.sql) en el SQL Editor.
+2. Copiar `.env.example` como `.env.local` y completar `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y `SUPABASE_SECRET_KEY` (Project Settings → API Keys).
+3. En Vercel, agregar las mismas tres variables en Settings → Environment Variables y volver a desplegar.
+
+Sin estas variables, en `npm run dev` las salas se guardan en memoria (sirve para probar en local con dos navegadores). En producción se muestra un aviso de configuración pendiente.
+
 ## Instalación
 
 Requisitos: Node.js 20.9 o superior.
@@ -121,7 +170,7 @@ npm install
 npm run dev
 ```
 
-Abrir <http://localhost:3000>. No se necesitan variables de entorno: PokéAPI es pública.
+Abrir <http://localhost:3000>. La Pokédex no necesita variables de entorno, porque PokéAPI es pública. Solo el minijuego usa Supabase (ver arriba).
 
 Build de producción:
 

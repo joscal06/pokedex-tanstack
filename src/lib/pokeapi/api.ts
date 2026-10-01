@@ -9,9 +9,10 @@ import type {
   PokemonResponse,
   PokemonSpeciesResponse,
   PokemonSprite,
+  PokemonSummary,
 } from "./types";
 
-const API_URL = "https://pokeapi.co/api/v2";
+export const API_URL = "https://pokeapi.co/api/v2";
 const ARTWORK_URL =
   "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork";
 
@@ -37,7 +38,7 @@ export class PokeApiError extends Error {
  * fetch compartido por servidor y cliente. En el servidor la opción `next`
  * activa la Data Cache de Next.js; en el navegador se ignora.
  */
-async function request<T>(url: string, signal?: AbortSignal): Promise<T> {
+export async function request<T>(url: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(url, {
     signal,
     next: { revalidate: SERVER_REVALIDATE_SECONDS },
@@ -87,6 +88,23 @@ export async function getPokemonPage(
       return { id, name, image: artworkUrl(id) };
     }),
   };
+}
+
+/** Los 1025 Pokémon (solo nombre e id), para el buscador del minijuego. */
+export async function getAllPokemon(signal?: AbortSignal): Promise<PokemonSummary[]> {
+  const data = await request<PaginatedResponse<NamedAPIResource>>(
+    `${API_URL}/pokemon?limit=${TOTAL_POKEMON}&offset=0`,
+    signal,
+  );
+  return data.results.map(({ name, url }) => {
+    const id = idFromUrl(url);
+    return { id, name, image: spriteUrl(id) };
+  });
+}
+
+/** Sprite pequeño (96 px) de los juegos, ideal para listas compactas. */
+export function spriteUrl(id: number): string {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 
 // ---------- Detalle ----------

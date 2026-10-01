@@ -40,6 +40,10 @@ export interface PokemonSpritesResponse {
   front_shiny: string | null;
   back_shiny: string | null;
   other?: {
+    showdown?: {
+      front_default: string | null;
+      back_default: string | null;
+    };
     "official-artwork"?: {
       front_default: string | null;
       front_shiny: string | null;
@@ -62,6 +66,38 @@ export interface PokemonResponse {
   stats: PokemonStatEntry[];
   sprites: PokemonSpritesResponse;
   species: NamedAPIResource;
+  moves: PokemonMoveEntry[];
+}
+
+export interface PokemonMoveEntry {
+  move: NamedAPIResource;
+  version_group_details: {
+    level_learned_at: number;
+    move_learn_method: NamedAPIResource;
+  }[];
+}
+
+export interface MoveResponse {
+  id: number;
+  name: string;
+  power: number | null;
+  accuracy: number | null;
+  priority: number;
+  damage_class: NamedAPIResource;
+  type: NamedAPIResource;
+  names: { name: string; language: NamedAPIResource }[];
+  meta: {
+    ailment: NamedAPIResource;
+    category: NamedAPIResource;
+    min_hits: number | null;
+    max_hits: number | null;
+    drain: number;
+    crit_rate: number;
+    ailment_chance: number;
+    flinch_chance: number;
+    stat_chance: number;
+  } | null;
+  stat_changes: { change: number; stat: NamedAPIResource }[];
 }
 
 export interface FlavorTextEntry {
